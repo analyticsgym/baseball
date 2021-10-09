@@ -1,0 +1,110 @@
+---
+title: "SF Giants 2021 Wins"
+output: rmarkdown::github_document
+always_allow_html: yes
+---
+
+```{r echo=FALSE, include = FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+```
+
+### Notebook objective
+- Use data visualizations to explore SF Giants franchise record of 107 wins during their 2021 regular season.
+
+###  Packages
+```{r}
+# Alternatively, using the devtools package:
+devtools::install_github(repo = "BillPetti/baseballr")
+
+
+
+required_packages <- c('tidyverse', 'gganimate', 'rvest')
+
+for(p in required_packages) {
+  library(p,character.only = TRUE)
+}
+```
+
+
+### Data
+```{r}
+### get giants regular season data from baseball reference site
+url <- "https://www.baseball-reference.com/teams/SFG/#franchise_years"
+sfg_season_stats_html_table <- read_html(url)
+sfg_season_data <- data.frame(html_table(sfg_season_stats_html_table))
+
+### only seasons with 162 games 
+sfg_season_data <- sfg_season_data %>%
+      janitor::clean_names() %>%
+      as_tibble() %>%
+      filter(g==162)
+
+glimpse(sfg_season_data)
+```
+
+### Visualize wins by season
+```{r}
+sfg_season_data %>%
+      arrange(year) %>%
+      mutate(winning_season = w>l,
+             wins_delta_from_previous_162_game_season = w - lag(w),
+             more_wins_than_prior_162_game_season =                  
+                   wins_delta_from_previous_162_game_season>0) %>%
+      ggplot(aes(x=factor(year),
+                 y=w,
+                 color=winning_season,
+                 group=1)) +
+      geom_point() +
+      geom_line(color="grey70", alpha=0.5, size=1.25) +
+      geom_text(aes(label=wins_delta_from_previous_162_game_season), 
+                vjust=-0.7, show.legend = F, color="grey40") +
+      scale_y_continuous(breaks=seq(0,200,5),
+            expand = expansion(mult = c(0.1, 0.1))) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+            legend.position = "top") +
+      labs(title="SF Giants Regular Season Wins",
+           x="Season Year (162 Game Regular Seasons Only)",
+           y="Wins",
+           color="More wins than losses")
+```
+
+### By season get wins by game 1 to 162
+```{r}
+years <- sfg_season_data %>% pull(year)
+
+pull_sfg_by_game_season_stats <- function(year) {
+      url <- paste0("https://www.baseball-reference.com/teams/SFG/",
+                    year,
+                    "-schedule-scores.shtml#team_schedule")
+      season_results <- read_html(url)
+      data.frame(html_table(season_results)) %>%
+            filter(Gm. %in% c(1:162)) %>%
+            rowwise() %>%
+            mutate(year = year,
+                   wins = as.numeric(strsplit(W.L.1, "-")[[1]][1]))
+}
+
+sfg_by_game_season_stats <- map_df(years, ~pull_sfg_by_game_season_stats(.))
+
+### sanity check the data looks right
+# sfg_by_game_season_stats %>%
+#       group_by(year) %>%
+#       summarise(games = n(),
+#                 wins = sum(str_detect(W.L, "W"))) %>%
+#       view()
+```
+
+### Static plot of wins by game
+```{r}
+sfg_by_game_season_stats %>%
+      mutate(game_number = as.numeric(Gm.)) %>%
+      ggplot(aes(x=game_number,
+                 y=wins,
+                 group=year)) +
+      geom_line(alpha=0.5)
+```
+
+
+
+
