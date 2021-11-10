@@ -4,7 +4,7 @@ SF Giants 2021 Regular Season Wins
 ### Notebook objective
 
   - Use data visualizations to explore SF Giants franchise record of 107
-    wins during their 2021 regular season.
+    wins during the 2021 regular season.
 
 ### Packages
 
